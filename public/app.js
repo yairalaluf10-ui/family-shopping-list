@@ -142,17 +142,84 @@ $("form").addEventListener("submit", e => {
 /* ---------- WhatsApp ---------- */
 function openWhatsApp(text) { window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank", "noopener"); }
 $("invite").onclick = () => openWhatsApp("הצטרפו לרשימת הקניות של המשפחה 🛒\nפותחים את הקישור, ואפשר להוסיף ולסמן פריטים:\n" + listUrl());
-$("sendList").onclick = () => {
+
+/* ---------- export (WhatsApp text or JPG image) ---------- */
+const openGroups = () => {
   const open = items.filter(i => !i.done);
-  if (!open.length) { toast("אין כרגע פריטים חסרים"); return; }
+  return AISLES.map(a => [a, open.filter(i => (i.aisle || "אחר") === a)]).filter(([, g]) => g.length);
+};
+const itemLabel = i => i.name + (i.qty ? " × " + i.qty : "");
+
+function sendListWhatsApp() {
   let text = "🛒 רשימת קניות\n";
-  AISLES.forEach(a => {
-    const g = open.filter(i => (i.aisle || "אחר") === a); if (!g.length) return;
-    text += "\n*" + a + "*\n" + g.map(i => "• " + i.name + (i.qty ? " × " + i.qty : "")).join("\n") + "\n";
-  });
+  openGroups().forEach(([a, g]) => { text += "\n*" + a + "*\n" + g.map(i => "• " + itemLabel(i)).join("\n") + "\n"; });
   text += "\nלרשימה המעודכנת: " + listUrl();
   openWhatsApp(text);
+}
+
+// Always drawn light, whatever the app theme, so the picture reads the same wherever it is shared.
+async function listImageBlob() {
+  const FONT = '"Assistant", sans-serif', TITLE = '"Secular One", "Assistant", sans-serif';
+  try { await Promise.all([document.fonts.load('700 36px Assistant'), document.fonts.load('36px "Secular One"')]); } catch {}
+  const groups = openGroups(), W = 1080, PAD = 64, BULLET = 40, LINE = 54;
+  const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d");
+  function wrap(text, maxW) {
+    const lines = []; let cur = "";
+    text.split(" ").forEach(w => {
+      const next = cur ? cur + " " + w : w;
+      if (cur && ctx.measureText(next).width > maxW) { lines.push(cur); cur = w; } else cur = next;
+    });
+    return cur ? lines.concat(cur) : lines;
+  }
+  function paint(draw) {
+    let y = PAD;
+    ctx.direction = "rtl"; ctx.textAlign = "right"; ctx.textBaseline = "alphabetic";
+    const right = W - PAD, count = groups.reduce((n, [, g]) => n + g.length, 0);
+    ctx.font = "64px " + TITLE; ctx.fillStyle = "#2f7a4b"; y += 56;
+    if (draw) ctx.fillText("🛒 רשימת קניות", right, y);
+    ctx.font = "30px " + FONT; ctx.fillStyle = "#66736b"; y += 48;
+    if (draw) ctx.fillText(new Date().toLocaleDateString("he-IL") + " · " + count + " פריטים", right, y);
+    groups.forEach(([a, g]) => {
+      y += 70; ctx.font = "700 42px " + FONT; ctx.fillStyle = "#2f7a4b";
+      if (draw) { ctx.fillText(a, right, y); ctx.fillStyle = "#dde3dc"; ctx.fillRect(PAD, y + 14, W - 2 * PAD, 2); }
+      y += 14;
+      g.forEach(i => {
+        ctx.font = "600 38px " + FONT;
+        const lines = wrap(itemLabel(i), W - 2 * PAD - BULLET);
+        y += LINE;
+        if (draw) { ctx.fillStyle = "#2f7a4b"; ctx.beginPath(); ctx.arc(right - 8, y - 13, 6, 0, 7); ctx.fill(); ctx.fillStyle = "#1c2620"; }
+        lines.forEach((l, n) => { if (n) y += LINE - 8; if (draw) ctx.fillText(l, right - BULLET, y); });
+      });
+    });
+    return y + PAD;
+  }
+  canvas.width = W; canvas.height = paint(false);   // resizing resets the context, so paint again
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, canvas.height);
+  paint(true);
+  return new Promise(res => canvas.toBlob(res, "image/jpeg", 0.92));
+}
+
+async function exportJpg() {
+  const blob = await listImageBlob();
+  if (!blob) { toast("יצירת התמונה לא הצליחה"); return; }
+  const file = new File([blob], "shopping-list.jpg", { type: "image/jpeg" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: "רשימת קניות" }); return; }
+    catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast("התמונה נשמרה");
+}
+
+$("exportList").onclick = () => {
+  if (!openGroups().length) { toast("אין כרגע פריטים חסרים"); return; }
+  $("exportDlg").showModal();
 };
+$("exportWa").onclick = () => { $("exportDlg").close(); sendListWhatsApp(); };
+$("exportJpg").onclick = () => { $("exportDlg").close(); exportJpg().catch(e => { console.error(e); toast("יצירת התמונה לא הצליחה"); }); };
+$("exportCancel").onclick = () => $("exportDlg").close();
+$("exportDlg").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 $("rename").onclick = () => { $("nameInput").value = myName; show("nameBox"); $("nameInput").focus(); };
 
 /* ---------- start ---------- */
