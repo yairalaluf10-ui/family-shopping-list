@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>רשימת הקניות של המשפחה</title>
+<meta name="description" content="רשימת קניות משותפת לכל המשפחה">
+<meta name="theme-color" content="#2f7a4b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="קניות">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>מה חסר בבית?</h1>
+    <div class="count" id="count"></div>
+  </header>
+
+  <!-- Shown when this device has no list yet -->
+  <div id="welcome" class="panel" hidden>
+    <h2 class="panel-title">ברוכים הבאים</h2>
+    <p>קיבלתם קישור מבן משפחה? פתחו אותו, או הדביקו אותו כאן:</p>
+    <form id="joinForm" class="row" autocomplete="off">
+      <input id="joinLink" placeholder="הדבקת קישור הזמנה" aria-label="קישור הזמנה" dir="ltr">
+      <button class="go" type="submit">כניסה</button>
+    </form>
+    <p class="or">או</p>
+    <button class="go wide" id="createList" type="button">פתיחת רשימה חדשה למשפחה</button>
+  </div>
+
+  <!-- Asked once per device, so the family sees who added what -->
+  <div id="nameBox" class="panel" hidden>
+    <h2 class="panel-title">איך קוראים לך?</h2>
+    <p>השם יופיע ליד הפריטים שתוסיפו, כדי שכולם ידעו מי ביקש מה.</p>
+    <form id="nameForm" class="row" autocomplete="off">
+      <input id="nameInput" placeholder="למשל: אמא, דני" aria-label="השם שלך" maxlength="30">
+      <button class="go" type="submit">שמירה</button>
+    </form>
+  </div>
+
+  <div id="app" hidden>
+    <form class="add" id="form" autocomplete="off">
+      <div class="row">
+        <input id="item" placeholder="מה חסר? למשל: קוטג׳" aria-label="פריט" maxlength="80">
+        <input id="qty" placeholder="כמות" aria-label="כמות" maxlength="12">
+        <button class="go" id="go" type="submit">הוספה</button>
+      </div>
+      <div class="aisles" id="aisles" role="group" aria-label="מחלקה"></div>
+    </form>
+
+    <div id="status" class="note" hidden></div>
+    <div id="list"></div>
+
+    <footer class="tools">
+      <button type="button" class="tool" id="invite">הזמנת בני משפחה בוואטסאפ</button>
+      <button type="button" class="tool" id="sendList">שליחת הרשימה בוואטסאפ</button>
+      <button type="button" class="tool quiet" id="rename"></button>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
