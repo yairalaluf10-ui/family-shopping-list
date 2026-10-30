@@ -1,0 +1,32 @@
+rules_version = '2';
+// Who may do what in the database.
+// - Only a signed-in device (anonymous sign-in is enough) can read or write.
+// - Lists are reachable only by their long random code from the invite link;
+//   nobody can browse or list other families' lists.
+// - Every saved item must look like a shopping item (known fields, sane lengths).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function validListId(id) { return id.size() >= 20 && id.size() <= 40; }
+    function validItem(d) {
+      return d.keys().hasOnly(['name', 'qty', 'aisle', 'done', 'by', 'uid', 'createdAt', 'doneAt'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 80
+        && d.qty is string && d.qty.size() <= 12
+        && d.aisle is string && d.aisle.size() <= 30
+        && d.done is bool
+        && d.by is string && d.by.size() <= 30
+        && d.uid is string && d.uid.size() <= 128
+        && d.createdAt is int
+        && (!('doneAt' in d) || d.doneAt is int);
+    }
+
+    match /lists/{listId}/items/{itemId} {
+      allow read, delete: if signedIn() && validListId(listId);
+      allow create: if signedIn() && validListId(listId) && validItem(request.resource.data)
+                    && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn() && validListId(listId) && validItem(request.resource.data)
+                    && request.resource.data.uid == resource.data.uid;
+    }
+  }
+}
