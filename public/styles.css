@@ -90,5 +90,9 @@ body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-a
 .dlg::backdrop{background:rgba(0,0,0,.45)}
 .dlg p{margin:0;color:var(--muted)}
 .dlg .go{padding:12px 20px}
+#imgPrev{display:block;width:100%;max-height:38vh;object-fit:contain;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+#imgPrev:not([src]){display:none}
+.alt-send{display:flex;gap:8px;margin-top:8px}
+.alt-send .tool{flex:1 1 0}
 .toast{position:fixed;inset-inline:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));margin:0 auto;max-width:420px;background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 16px;text-align:center;z-index:5}
 select:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
