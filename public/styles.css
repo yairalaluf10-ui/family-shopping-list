@@ -85,5 +85,10 @@ body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-a
 .tool{font:inherit;font-size:.95rem;font-weight:600;flex:1 1 200px;border:1.5px solid var(--line);background:var(--surface);color:var(--leaf);border-radius:12px;padding:11px 14px;cursor:pointer}
 .tool.quiet{flex-basis:100%;border:0;background:none;color:var(--muted);font-weight:400;font-size:.88rem;padding:4px}
 .tool.quiet:empty{display:none}
+.dlg{width:min(92vw,360px);border:1px solid var(--line);border-radius:16px;padding:18px;background:var(--surface);color:var(--ink)}
+.dlg[open]{display:grid;gap:12px}
+.dlg::backdrop{background:rgba(0,0,0,.45)}
+.dlg p{margin:0;color:var(--muted)}
+.dlg .go{padding:12px 20px}
 .toast{position:fixed;inset-inline:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));margin:0 auto;max-width:420px;background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 16px;text-align:center;z-index:5}
 select:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}

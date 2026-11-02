@@ -59,10 +59,18 @@
 
     <footer class="tools">
       <button type="button" class="tool" id="invite">הזמנת בני משפחה בוואטסאפ</button>
-      <button type="button" class="tool" id="sendList">שליחת הרשימה בוואטסאפ</button>
+      <button type="button" class="tool" id="exportList">ייצוא הרשימה</button>
       <button type="button" class="tool quiet" id="rename"></button>
     </footer>
   </div>
+
+  <dialog id="exportDlg" class="dlg" aria-labelledby="exportTitle">
+    <h2 class="panel-title" id="exportTitle">ייצוא הרשימה</h2>
+    <p>איך לשלוח את הרשימה?</p>
+    <button type="button" class="go wide" id="exportWa">שליחה בוואטסאפ</button>
+    <button type="button" class="go wide" id="exportJpg">שמירה כתמונה (JPG)</button>
+    <button type="button" class="tool quiet" id="exportCancel">ביטול</button>
+  </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </div>

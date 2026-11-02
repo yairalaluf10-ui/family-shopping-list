@@ -1,5 +1,5 @@
 import { AISLES, guessAisle } from "./categories.js";
-import { icon } from "./icons.js";
+import { ICON, icon } from "./icons.js";
 import * as store from "./store.js";
 
 const $ = id => document.getElementById(id);
@@ -142,17 +142,132 @@ $("form").addEventListener("submit", e => {
 /* ---------- WhatsApp ---------- */
 function openWhatsApp(text) { window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank", "noopener"); }
 $("invite").onclick = () => openWhatsApp("הצטרפו לרשימת הקניות של המשפחה 🛒\nפותחים את הקישור, ואפשר להוסיף ולסמן פריטים:\n" + listUrl());
-$("sendList").onclick = () => {
+
+/* ---------- export (WhatsApp text or JPG image) ---------- */
+const openGroups = () => {
   const open = items.filter(i => !i.done);
-  if (!open.length) { toast("אין כרגע פריטים חסרים"); return; }
+  return AISLES.map(a => [a, open.filter(i => (i.aisle || "אחר") === a)]).filter(([, g]) => g.length);
+};
+const itemLabel = i => i.name + (i.qty ? " × " + i.qty : "");
+
+function sendListWhatsApp() {
   let text = "🛒 רשימת קניות\n";
-  AISLES.forEach(a => {
-    const g = open.filter(i => (i.aisle || "אחר") === a); if (!g.length) return;
-    text += "\n*" + a + "*\n" + g.map(i => "• " + i.name + (i.qty ? " × " + i.qty : "")).join("\n") + "\n";
-  });
+  openGroups().forEach(([a, g]) => { text += "\n*" + a + "*\n" + g.map(i => "• " + itemLabel(i)).join("\n") + "\n"; });
   text += "\nלרשימה המעודכנת: " + listUrl();
   openWhatsApp(text);
+}
+
+// Always drawn light, whatever the app theme, so the picture reads the same wherever it is shared.
+async function listImageBlob() {
+  const FONT = '"Assistant", sans-serif', TITLE = '"Secular One", "Assistant", sans-serif';
+  try { await Promise.all([document.fonts.load('700 36px Assistant'), document.fonts.load('36px "Secular One"')]); } catch {}
+  const groups = openGroups(), count = groups.reduce((n, [, g]) => n + g.length, 0);
+  const W = 1080, M = 48, PADX = 36, HERO = 240, HEAD = 112, ROW = 78, LH = 48, GAP = 32;
+  const css = getComputedStyle(document.documentElement);
+  const color = a => css.getPropertyValue((ICON[a] || ICON["אחר"])[0]).trim() || "#6f7a73";
+
+  // The same line icons as the app, tinted with the aisle color.
+  const pics = {};
+  await Promise.all(groups.map(async ([a]) => {
+    const c = color(a), img = new Image();
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="' + c + '" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      (ICON[a] || ICON["אחר"])[1].replaceAll("currentColor", c) + "</svg>");
+    try { await img.decode(); pics[a] = img; } catch {}
+  }));
+
+  const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d");
+  function wrap(text, maxW) {
+    const lines = []; let cur = "";
+    text.split(" ").forEach(w => {
+      const next = cur ? cur + " " + w : w;
+      if (cur && ctx.measureText(next).width > maxW) { lines.push(cur); cur = w; } else cur = next;
+    });
+    return cur ? lines.concat(cur) : lines;
+  }
+  function round(x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  const itemLines = (i, maxW) => { ctx.font = "600 38px " + FONT; return wrap(i.name, maxW); };
+  const qtyWidth = i => { ctx.font = "700 30px " + FONT; return i.qty ? ctx.measureText(i.qty).width + 40 : 0; };
+
+  function paint(draw) {
+    ctx.direction = "rtl"; ctx.textAlign = "right"; ctx.textBaseline = "alphabetic";
+    if (draw) {
+      ctx.fillStyle = "#f3f5f1"; ctx.fillRect(0, 0, W, canvas.height);
+      const g = ctx.createLinearGradient(0, 0, W, HERO); g.addColorStop(0, "#3a8d58"); g.addColorStop(1, "#1f5c37");
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, HERO);
+      ctx.fillStyle = "rgba(255,255,255,.08)"; ctx.beginPath(); ctx.arc(120, 40, 190, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(300, 250, 110, 0, 7); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.font = "76px " + TITLE; ctx.fillText("🛒 רשימת קניות", W - M, 118);
+      const sub = new Date().toLocaleDateString("he-IL") + " · " + count + " פריטים";
+      ctx.font = "700 32px " + FONT; const sw = ctx.measureText(sub).width + 48;
+      ctx.fillStyle = "rgba(255,255,255,.2)"; round(W - M - sw, 148, sw, 56, 28); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.fillText(sub, W - M - 24, 188);
+    }
+    let y = HERO + GAP + 8;
+    const left = M, right = W - M;
+    groups.forEach(([a, g]) => {
+      const c = color(a), innerR = right - PADX, innerL = left + PADX, textR = innerR - 52;
+      const rows = g.map(i => { const q = qtyWidth(i), lines = itemLines(i, textR - innerL - (q ? q + 24 : 0)); return { i, q, lines, h: ROW + (lines.length - 1) * LH }; });
+      const h = HEAD + rows.reduce((n, r) => n + r.h, 0) + 20;
+      if (draw) {
+        ctx.save(); ctx.shadowColor = "rgba(28,38,32,.12)"; ctx.shadowBlur = 28; ctx.shadowOffsetY = 8;
+        ctx.fillStyle = "#fff"; round(left, y, right - left, h, 32); ctx.fill(); ctx.restore();
+        ctx.save(); round(left, y, right - left, h, 32); ctx.clip(); ctx.fillStyle = c + "1f"; ctx.fillRect(left, y, right - left, HEAD); ctx.restore();
+        ctx.fillStyle = c + "2e"; round(innerR - 72, y + 20, 72, 72, 20); ctx.fill();
+        if (pics[a]) ctx.drawImage(pics[a], innerR - 72 + 14, y + 20 + 14, 44, 44);
+        ctx.fillStyle = c; ctx.font = "700 46px " + FONT; ctx.fillText(a, innerR - 72 - 22, y + 72);
+        const n = String(g.length); ctx.font = "700 32px " + FONT; const bw = Math.max(52, ctx.measureText(n).width + 32);
+        ctx.fillStyle = c; round(innerL, y + 28, bw, 56, 28); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(n, innerL + bw / 2, y + 68); ctx.textAlign = "right";
+      }
+      let ry = y + HEAD;
+      rows.forEach((r, k) => {
+        if (draw) {
+          const base = ry + 52;
+          ctx.strokeStyle = c; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(innerR - 16, base - 13, 14, 0, 7); ctx.stroke();
+          ctx.fillStyle = "#1c2620"; ctx.font = "600 38px " + FONT;
+          r.lines.forEach((l, n) => ctx.fillText(l, textR, base + n * LH));
+          if (r.q) {
+            ctx.fillStyle = c + "22"; round(innerL, base - 35, r.q, 50, 25); ctx.fill();
+            ctx.fillStyle = c; ctx.font = "700 30px " + FONT; ctx.textAlign = "center"; ctx.fillText(r.i.qty, innerL + r.q / 2, base); ctx.textAlign = "right";
+          }
+          if (k < rows.length - 1) { ctx.fillStyle = "#eef1ed"; ctx.fillRect(innerL, ry + r.h - 1, innerR - innerL, 2); }
+        }
+        ry += r.h;
+      });
+      y += h + GAP;
+    });
+    return y + 8;
+  }
+  canvas.width = W; canvas.height = paint(false);   // resizing resets the context, so paint again
+  paint(true);
+  return new Promise(res => canvas.toBlob(res, "image/jpeg", 0.92));
+}
+
+async function exportJpg() {
+  const blob = await listImageBlob();
+  if (!blob) { toast("יצירת התמונה לא הצליחה"); return; }
+  const file = new File([blob], "shopping-list.jpg", { type: "image/jpeg" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: "רשימת קניות" }); return; }
+    catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast("התמונה נשמרה");
+}
+
+$("exportList").onclick = () => {
+  if (!openGroups().length) { toast("אין כרגע פריטים חסרים"); return; }
+  $("exportDlg").showModal();
 };
+$("exportWa").onclick = () => { $("exportDlg").close(); sendListWhatsApp(); };
+$("exportJpg").onclick = () => { $("exportDlg").close(); exportJpg().catch(e => { console.error(e); toast("יצירת התמונה לא הצליחה"); }); };
+$("exportCancel").onclick = () => $("exportDlg").close();
+$("exportDlg").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 $("rename").onclick = () => { $("nameInput").value = myName; show("nameBox"); $("nameInput").focus(); };
 
 /* ---------- start ---------- */
