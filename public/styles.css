@@ -49,7 +49,10 @@ li:first-child{border-top:0}
 .txt{flex:1;min-width:0}
 .name{font-weight:600;overflow-wrap:anywhere}
 .qtyb{font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
-.who{display:flex;align-items:center;gap:5px;font-size:.82rem;color:var(--muted)}
+.who{display:flex;align-items:center;flex-wrap:wrap;gap:5px;font-size:.82rem;color:var(--muted)}
+.addqty{font:inherit;font-size:.82rem;color:var(--leaf);background:transparent;border:0;padding:2px 0;cursor:pointer}
+.qty-form{display:inline-flex;align-items:center;gap:6px}
+.qty-edit{width:5.5rem;font-size:.85rem;padding:3px 8px;border-radius:8px}
 .who img{width:16px;height:16px;border-radius:50%}
 .move{font:inherit;font-size:.82rem;color:var(--leaf);background:transparent;border:0;padding:2px 0;cursor:pointer;max-width:100%}
 .ic{flex:none;display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;color:var(--c);background:color-mix(in srgb,var(--c) 14%,var(--surface))}
