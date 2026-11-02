@@ -94,6 +94,34 @@ function render() {
     }
     list.append(head, makeList(bought));
   }
+  const qe = list.querySelector(".qty-edit");
+  if (qe) { qe.focus(); qe.setSelectionRange(qe.value.length, qe.value.length); }
+}
+
+// The item being given a quantity, and what was typed so far (the list re-renders on every sync).
+let qtyEditing = null, qtyDraft = "";
+function qtyControl(i) {
+  if (qtyEditing !== i.id) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "addqty";
+    b.textContent = i.qty ? "עריכת כמות" : "+ כמות";
+    b.setAttribute("aria-label", (i.qty ? "עריכת הכמות של " : "הוספת כמות ל") + i.name);
+    b.onclick = () => { qtyEditing = i.id; qtyDraft = i.qty || ""; render(); };
+    return b;
+  }
+  const f = document.createElement("form"); f.className = "qty-form";
+  const q = document.createElement("input"); q.className = "qty-edit"; q.placeholder = "כמות"; q.maxLength = 12; q.value = qtyDraft;
+  q.setAttribute("aria-label", "כמות עבור " + i.name);
+  q.oninput = () => { qtyDraft = q.value; };
+  q.onkeydown = e => { if (e.key === "Escape") { qtyEditing = null; render(); } };
+  const ok = document.createElement("button"); ok.type = "submit"; ok.className = "addqty"; ok.textContent = "שמירה";
+  f.onsubmit = e => {
+    e.preventDefault();
+    const v = qtyDraft.trim(); qtyEditing = null; qtyDraft = "";
+    if (v !== (i.qty || "")) run(store.updateItem(listId, i.id, { qty: v }));   // an empty value clears it
+    render();
+  };
+  f.append(q, ok);
+  return f;
 }
 
 function makeList(arr) {
@@ -114,6 +142,7 @@ function makeList(arr) {
       AISLES.forEach(a => { const o = document.createElement("option"); o.value = a; o.textContent = a; if (a === (i.aisle || "אחר")) o.selected = true; s.append(o); });
       s.onchange = () => run(store.updateItem(listId, i.id, { aisle: s.value }));
       if (i.by) w.append(" · "); w.append(s);
+      w.append(" · ", qtyControl(i));   // quantity can be added or changed after the item is on the list
     }
     if (w.childNodes.length) t.append(w);
     const d = document.createElement("button"); d.className = "del"; d.textContent = "×";
