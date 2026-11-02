@@ -72,6 +72,21 @@
     <button type="button" class="tool quiet" id="exportCancel">ביטול</button>
   </dialog>
 
+  <dialog id="imgDlg" class="dlg" aria-labelledby="imgTitle">
+    <h2 class="panel-title" id="imgTitle">התמונה מוכנה</h2>
+    <img id="imgPrev" alt="תצוגה מקדימה של רשימת הקניות">
+    <button type="button" class="go wide" id="imgShare">שיתוף</button>
+    <button type="button" class="go wide" id="imgSave">שמירה במכשיר</button>
+    <div id="imgFallback" hidden>
+      <p>הדפדפן הזה לא מאפשר לשתף תמונה ישירות. שמרו אותה וצרפו להודעה, או שלחו את הרשימה כטקסט:</p>
+      <div class="alt-send">
+        <button type="button" class="tool" id="imgWa">וואטסאפ</button>
+        <button type="button" class="tool" id="imgMail">מייל</button>
+      </div>
+    </div>
+    <button type="button" class="tool quiet" id="imgClose">סגירה</button>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </div>
 <script type="module" src="app.js"></script>

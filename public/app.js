@@ -22,7 +22,11 @@ function idFromText(text) {
   const m = String(text || "").trim().match(/#?([A-Za-z0-9]{20,40})\s*$/);
   return m && ID_RE.test(m[1]) ? m[1] : null;
 }
-const listUrl = () => location.origin + location.pathname + "#" + listId;
+// A localhost address is not a clickable link in WhatsApp, so shared links always use the live site
+// (it opens the same list, since the list lives in Firebase).
+const LIVE_URL = "https://alaluf-family-list.netlify.app/";
+const isLocalHost = /^(localhost|127\.0\.0\.1|\[::1\]|.+\.localhost)$/.test(location.hostname);
+const listUrl = () => (isLocalHost ? LIVE_URL : location.origin + location.pathname) + "#" + listId;
 
 function chooseList() {
   const fromHash = idFromText(location.hash);
@@ -150,12 +154,12 @@ const openGroups = () => {
 };
 const itemLabel = i => i.name + (i.qty ? " × " + i.qty : "");
 
-function sendListWhatsApp() {
+function listText() {
   let text = "🛒 רשימת קניות\n";
   openGroups().forEach(([a, g]) => { text += "\n*" + a + "*\n" + g.map(i => "• " + itemLabel(i)).join("\n") + "\n"; });
-  text += "\nלרשימה המעודכנת: " + listUrl();
-  openWhatsApp(text);
+  return text + "\nלרשימה המעודכנת:\n" + listUrl();   // on its own line so WhatsApp turns it into a link
 }
+const sendListWhatsApp = () => openWhatsApp(listText());
 
 // Always drawn light, whatever the app theme, so the picture reads the same wherever it is shared.
 async function listImageBlob() {
@@ -247,18 +251,35 @@ async function listImageBlob() {
   return new Promise(res => canvas.toBlob(res, "image/jpeg", 0.92));
 }
 
+// The finished picture is shown first; from there it can be shared (WhatsApp, mail and whatever else the
+// device offers) or saved. Browsers that cannot share files get text-only WhatsApp / mail shortcuts instead.
+let imgFile = null, imgUrl = "";
 async function exportJpg() {
   const blob = await listImageBlob();
   if (!blob) { toast("יצירת התמונה לא הצליחה"); return; }
-  const file = new File([blob], "shopping-list.jpg", { type: "image/jpeg" });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: "רשימת קניות" }); return; }
-    catch (e) { if (e && e.name === "AbortError") return; }
-  }
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name;
-  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  toast("התמונה נשמרה");
+  imgFile = new File([blob], "shopping-list.jpg", { type: "image/jpeg" });
+  imgUrl = URL.createObjectURL(blob);
+  const canShare = !!(navigator.canShare && navigator.canShare({ files: [imgFile] }));
+  $("imgPrev").src = imgUrl;
+  $("imgShare").hidden = !canShare;
+  $("imgFallback").hidden = canShare;
+  $("imgDlg").showModal();
 }
+async function shareImage() {
+  try { await navigator.share({ files: [imgFile], title: "רשימת קניות" }); }
+  catch (e) { if (!e || e.name !== "AbortError") toast("השיתוף לא הצליח. אפשר לשמור את התמונה ולשלוח אותה ידנית."); }
+}
+function saveImage() {
+  const a = document.createElement("a"); a.href = imgUrl; a.download = imgFile.name;
+  document.body.append(a); a.click(); a.remove(); toast("התמונה נשמרה");
+}
+$("imgShare").onclick = shareImage;
+$("imgSave").onclick = saveImage;
+$("imgWa").onclick = sendListWhatsApp;
+$("imgMail").onclick = () => { location.href = "mailto:?subject=" + encodeURIComponent("רשימת קניות") + "&body=" + encodeURIComponent(listText()); };
+$("imgClose").onclick = () => $("imgDlg").close();
+$("imgDlg").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+$("imgDlg").addEventListener("close", () => { URL.revokeObjectURL(imgUrl); $("imgPrev").removeAttribute("src"); imgFile = null; });
 
 $("exportList").onclick = () => {
   if (!openGroups().length) { toast("אין כרגע פריטים חסרים"); return; }
