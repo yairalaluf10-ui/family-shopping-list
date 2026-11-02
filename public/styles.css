@@ -86,6 +86,8 @@ body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-a
 .or{text-align:center;font-size:.9rem}
 .tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px}
 .tool{font:inherit;font-size:.95rem;font-weight:600;flex:1 1 200px;border:1.5px solid var(--line);background:var(--surface);color:var(--leaf);border-radius:12px;padding:11px 14px;cursor:pointer}
+.clear-all{flex:1 1 100%}
+.tool.danger{width:100%;color:var(--tomato)}
 .tool.quiet{flex-basis:100%;border:0;background:none;color:var(--muted);font-weight:400;font-size:.88rem;padding:4px}
 .tool.quiet:empty{display:none}
 .dlg{width:min(92vw,360px);border:1px solid var(--line);border-radius:16px;padding:18px;background:var(--surface);color:var(--ink)}

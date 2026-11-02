@@ -64,8 +64,27 @@ $("item").addEventListener("input", () => {
   if (!manual) setAisle(guessAisle($("item").value) || "אחר");
 });
 
+/* ---------- clear the whole list (only offered while there is something in it) ---------- */
+let confirmingAll = false;
+function renderClearAll() {
+  const box = $("clearAll"); box.innerHTML = ""; box.hidden = !items.length;
+  if (!items.length) { confirmingAll = false; return; }
+  if (!confirmingAll) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "tool danger"; b.textContent = "ניקוי כל הרשימה";
+    b.onclick = () => { confirmingAll = true; renderClearAll(); };
+    box.append(b); return;
+  }
+  const w = document.createElement("div"); w.className = "confirm"; w.append("למחוק את כל " + items.length + " הפריטים?");
+  const y = document.createElement("button"); y.type = "button"; y.className = "yes"; y.textContent = "מחיקה";
+  y.onclick = () => { confirmingAll = false; run(store.removeMany(listId, items.map(i => i.id))); };
+  const n = document.createElement("button"); n.type = "button"; n.textContent = "ביטול";
+  n.onclick = () => { confirmingAll = false; renderClearAll(); };
+  w.append(y, n); box.append(w);
+}
+
 /* ---------- render ---------- */
 function render() {
+  renderClearAll();
   const open = items.filter(i => !i.done), bought = items.filter(i => i.done);
   $("count").textContent = "";
   if (items.length) { const b = document.createElement("b"); b.textContent = open.length; $("count").append(b, " פריטים חסרים"); }
