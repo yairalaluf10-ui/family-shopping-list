@@ -1,5 +1,5 @@
 import { AISLES, guessAisle } from "./categories.js";
-import { icon } from "./icons.js";
+import { ICON, icon } from "./icons.js";
 import * as store from "./store.js";
 
 const $ = id => document.getElementById(id);
@@ -22,7 +22,11 @@ function idFromText(text) {
   const m = String(text || "").trim().match(/#?([A-Za-z0-9]{20,40})\s*$/);
   return m && ID_RE.test(m[1]) ? m[1] : null;
 }
-const listUrl = () => location.origin + location.pathname + "#" + listId;
+// A localhost address is not a clickable link in WhatsApp, so shared links always use the live site
+// (it opens the same list, since the list lives in Firebase).
+const LIVE_URL = "https://alaluf-family-list.netlify.app/";
+const isLocalHost = /^(localhost|127\.0\.0\.1|\[::1\]|.+\.localhost)$/.test(location.hostname);
+const listUrl = () => (isLocalHost ? LIVE_URL : location.origin + location.pathname) + "#" + listId;
 
 function chooseList() {
   const fromHash = idFromText(location.hash);
@@ -60,8 +64,27 @@ $("item").addEventListener("input", () => {
   if (!manual) setAisle(guessAisle($("item").value) || "אחר");
 });
 
+/* ---------- clear the whole list (only offered while there is something in it) ---------- */
+let confirmingAll = false;
+function renderClearAll() {
+  const box = $("clearAll"); box.innerHTML = ""; box.hidden = !items.length;
+  if (!items.length) { confirmingAll = false; return; }
+  if (!confirmingAll) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "tool danger"; b.textContent = "ניקוי כל הרשימה";
+    b.onclick = () => { confirmingAll = true; renderClearAll(); };
+    box.append(b); return;
+  }
+  const w = document.createElement("div"); w.className = "confirm"; w.append("למחוק את כל " + items.length + " הפריטים?");
+  const y = document.createElement("button"); y.type = "button"; y.className = "yes"; y.textContent = "מחיקה";
+  y.onclick = () => { confirmingAll = false; run(store.removeMany(listId, items.map(i => i.id))); };
+  const n = document.createElement("button"); n.type = "button"; n.textContent = "ביטול";
+  n.onclick = () => { confirmingAll = false; renderClearAll(); };
+  w.append(y, n); box.append(w);
+}
+
 /* ---------- render ---------- */
 function render() {
+  renderClearAll();
   const open = items.filter(i => !i.done), bought = items.filter(i => i.done);
   $("count").textContent = "";
   if (items.length) { const b = document.createElement("b"); b.textContent = open.length; $("count").append(b, " פריטים חסרים"); }
@@ -90,6 +113,34 @@ function render() {
     }
     list.append(head, makeList(bought));
   }
+  const qe = list.querySelector(".qty-edit");
+  if (qe) { qe.focus(); qe.setSelectionRange(qe.value.length, qe.value.length); }
+}
+
+// The item being given a quantity, and what was typed so far (the list re-renders on every sync).
+let qtyEditing = null, qtyDraft = "";
+function qtyControl(i) {
+  if (qtyEditing !== i.id) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "addqty";
+    b.textContent = i.qty ? "עריכת כמות" : "+ כמות";
+    b.setAttribute("aria-label", (i.qty ? "עריכת הכמות של " : "הוספת כמות ל") + i.name);
+    b.onclick = () => { qtyEditing = i.id; qtyDraft = i.qty || ""; render(); };
+    return b;
+  }
+  const f = document.createElement("form"); f.className = "qty-form";
+  const q = document.createElement("input"); q.className = "qty-edit"; q.placeholder = "כמות"; q.maxLength = 12; q.value = qtyDraft;
+  q.setAttribute("aria-label", "כמות עבור " + i.name);
+  q.oninput = () => { qtyDraft = q.value; };
+  q.onkeydown = e => { if (e.key === "Escape") { qtyEditing = null; render(); } };
+  const ok = document.createElement("button"); ok.type = "submit"; ok.className = "addqty"; ok.textContent = "שמירה";
+  f.onsubmit = e => {
+    e.preventDefault();
+    const v = qtyDraft.trim(); qtyEditing = null; qtyDraft = "";
+    if (v !== (i.qty || "")) run(store.updateItem(listId, i.id, { qty: v }));   // an empty value clears it
+    render();
+  };
+  f.append(q, ok);
+  return f;
 }
 
 function makeList(arr) {
@@ -110,6 +161,7 @@ function makeList(arr) {
       AISLES.forEach(a => { const o = document.createElement("option"); o.value = a; o.textContent = a; if (a === (i.aisle || "אחר")) o.selected = true; s.append(o); });
       s.onchange = () => run(store.updateItem(listId, i.id, { aisle: s.value }));
       if (i.by) w.append(" · "); w.append(s);
+      w.append(" · ", qtyControl(i));   // quantity can be added or changed after the item is on the list
     }
     if (w.childNodes.length) t.append(w);
     const d = document.createElement("button"); d.className = "del"; d.textContent = "×";
@@ -142,17 +194,149 @@ $("form").addEventListener("submit", e => {
 /* ---------- WhatsApp ---------- */
 function openWhatsApp(text) { window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank", "noopener"); }
 $("invite").onclick = () => openWhatsApp("הצטרפו לרשימת הקניות של המשפחה 🛒\nפותחים את הקישור, ואפשר להוסיף ולסמן פריטים:\n" + listUrl());
-$("sendList").onclick = () => {
+
+/* ---------- export (WhatsApp text or JPG image) ---------- */
+const openGroups = () => {
   const open = items.filter(i => !i.done);
-  if (!open.length) { toast("אין כרגע פריטים חסרים"); return; }
-  let text = "🛒 רשימת קניות\n";
-  AISLES.forEach(a => {
-    const g = open.filter(i => (i.aisle || "אחר") === a); if (!g.length) return;
-    text += "\n*" + a + "*\n" + g.map(i => "• " + i.name + (i.qty ? " × " + i.qty : "")).join("\n") + "\n";
-  });
-  text += "\nלרשימה המעודכנת: " + listUrl();
-  openWhatsApp(text);
+  return AISLES.map(a => [a, open.filter(i => (i.aisle || "אחר") === a)]).filter(([, g]) => g.length);
 };
+const itemLabel = i => i.name + (i.qty ? " × " + i.qty : "");
+
+function listText() {
+  let text = "🛒 רשימת קניות\n";
+  openGroups().forEach(([a, g]) => { text += "\n*" + a + "*\n" + g.map(i => "• " + itemLabel(i)).join("\n") + "\n"; });
+  return text + "\nלרשימה המעודכנת:\n" + listUrl();   // on its own line so WhatsApp turns it into a link
+}
+const sendListWhatsApp = () => openWhatsApp(listText());
+
+// Always drawn light, whatever the app theme, so the picture reads the same wherever it is shared.
+async function listImageBlob() {
+  const FONT = '"Assistant", sans-serif', TITLE = '"Secular One", "Assistant", sans-serif';
+  try { await Promise.all([document.fonts.load('700 36px Assistant'), document.fonts.load('36px "Secular One"')]); } catch {}
+  const groups = openGroups(), count = groups.reduce((n, [, g]) => n + g.length, 0);
+  const W = 1080, M = 48, PADX = 36, HERO = 240, HEAD = 112, ROW = 78, LH = 48, GAP = 32;
+  const css = getComputedStyle(document.documentElement);
+  const color = a => css.getPropertyValue((ICON[a] || ICON["אחר"])[0]).trim() || "#6f7a73";
+
+  // The same line icons as the app, tinted with the aisle color.
+  const pics = {};
+  await Promise.all(groups.map(async ([a]) => {
+    const c = color(a), img = new Image();
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="' + c + '" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      (ICON[a] || ICON["אחר"])[1].replaceAll("currentColor", c) + "</svg>");
+    try { await img.decode(); pics[a] = img; } catch {}
+  }));
+
+  const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d");
+  function wrap(text, maxW) {
+    const lines = []; let cur = "";
+    text.split(" ").forEach(w => {
+      const next = cur ? cur + " " + w : w;
+      if (cur && ctx.measureText(next).width > maxW) { lines.push(cur); cur = w; } else cur = next;
+    });
+    return cur ? lines.concat(cur) : lines;
+  }
+  function round(x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  const itemLines = (i, maxW) => { ctx.font = "600 38px " + FONT; return wrap(i.name, maxW); };
+  const qtyWidth = i => { ctx.font = "700 30px " + FONT; return i.qty ? ctx.measureText(i.qty).width + 40 : 0; };
+
+  function paint(draw) {
+    ctx.direction = "rtl"; ctx.textAlign = "right"; ctx.textBaseline = "alphabetic";
+    if (draw) {
+      ctx.fillStyle = "#f3f5f1"; ctx.fillRect(0, 0, W, canvas.height);
+      const g = ctx.createLinearGradient(0, 0, W, HERO); g.addColorStop(0, "#3a8d58"); g.addColorStop(1, "#1f5c37");
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, HERO);
+      ctx.fillStyle = "rgba(255,255,255,.08)"; ctx.beginPath(); ctx.arc(120, 40, 190, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(300, 250, 110, 0, 7); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.font = "76px " + TITLE; ctx.fillText("🛒 רשימת קניות", W - M, 118);
+      const sub = new Date().toLocaleDateString("he-IL") + " · " + count + " פריטים";
+      ctx.font = "700 32px " + FONT; const sw = ctx.measureText(sub).width + 48;
+      ctx.fillStyle = "rgba(255,255,255,.2)"; round(W - M - sw, 148, sw, 56, 28); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.fillText(sub, W - M - 24, 188);
+    }
+    let y = HERO + GAP + 8;
+    const left = M, right = W - M;
+    groups.forEach(([a, g]) => {
+      const c = color(a), innerR = right - PADX, innerL = left + PADX, textR = innerR - 52;
+      const rows = g.map(i => { const q = qtyWidth(i), lines = itemLines(i, textR - innerL - (q ? q + 24 : 0)); return { i, q, lines, h: ROW + (lines.length - 1) * LH }; });
+      const h = HEAD + rows.reduce((n, r) => n + r.h, 0) + 20;
+      if (draw) {
+        ctx.save(); ctx.shadowColor = "rgba(28,38,32,.12)"; ctx.shadowBlur = 28; ctx.shadowOffsetY = 8;
+        ctx.fillStyle = "#fff"; round(left, y, right - left, h, 32); ctx.fill(); ctx.restore();
+        ctx.save(); round(left, y, right - left, h, 32); ctx.clip(); ctx.fillStyle = c + "1f"; ctx.fillRect(left, y, right - left, HEAD); ctx.restore();
+        ctx.fillStyle = c + "2e"; round(innerR - 72, y + 20, 72, 72, 20); ctx.fill();
+        if (pics[a]) ctx.drawImage(pics[a], innerR - 72 + 14, y + 20 + 14, 44, 44);
+        ctx.fillStyle = c; ctx.font = "700 46px " + FONT; ctx.fillText(a, innerR - 72 - 22, y + 72);
+        const n = String(g.length); ctx.font = "700 32px " + FONT; const bw = Math.max(52, ctx.measureText(n).width + 32);
+        ctx.fillStyle = c; round(innerL, y + 28, bw, 56, 28); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(n, innerL + bw / 2, y + 68); ctx.textAlign = "right";
+      }
+      let ry = y + HEAD;
+      rows.forEach((r, k) => {
+        if (draw) {
+          const base = ry + 52;
+          ctx.strokeStyle = c; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(innerR - 16, base - 13, 14, 0, 7); ctx.stroke();
+          ctx.fillStyle = "#1c2620"; ctx.font = "600 38px " + FONT;
+          r.lines.forEach((l, n) => ctx.fillText(l, textR, base + n * LH));
+          if (r.q) {
+            ctx.fillStyle = c + "22"; round(innerL, base - 35, r.q, 50, 25); ctx.fill();
+            ctx.fillStyle = c; ctx.font = "700 30px " + FONT; ctx.textAlign = "center"; ctx.fillText(r.i.qty, innerL + r.q / 2, base); ctx.textAlign = "right";
+          }
+          if (k < rows.length - 1) { ctx.fillStyle = "#eef1ed"; ctx.fillRect(innerL, ry + r.h - 1, innerR - innerL, 2); }
+        }
+        ry += r.h;
+      });
+      y += h + GAP;
+    });
+    return y + 8;
+  }
+  canvas.width = W; canvas.height = paint(false);   // resizing resets the context, so paint again
+  paint(true);
+  return new Promise(res => canvas.toBlob(res, "image/jpeg", 0.92));
+}
+
+// The finished picture is shown first; from there it can be shared (WhatsApp, mail and whatever else the
+// device offers) or saved. Browsers that cannot share files get text-only WhatsApp / mail shortcuts instead.
+let imgFile = null, imgUrl = "";
+async function exportJpg() {
+  const blob = await listImageBlob();
+  if (!blob) { toast("יצירת התמונה לא הצליחה"); return; }
+  imgFile = new File([blob], "shopping-list.jpg", { type: "image/jpeg" });
+  imgUrl = URL.createObjectURL(blob);
+  const canShare = !!(navigator.canShare && navigator.canShare({ files: [imgFile] }));
+  $("imgPrev").src = imgUrl;
+  $("imgShare").hidden = !canShare;
+  $("imgFallback").hidden = canShare;
+  $("imgDlg").showModal();
+}
+async function shareImage() {
+  try { await navigator.share({ files: [imgFile], title: "רשימת קניות" }); }
+  catch (e) { if (!e || e.name !== "AbortError") toast("השיתוף לא הצליח. אפשר לשמור את התמונה ולשלוח אותה ידנית."); }
+}
+function saveImage() {
+  const a = document.createElement("a"); a.href = imgUrl; a.download = imgFile.name;
+  document.body.append(a); a.click(); a.remove(); toast("התמונה נשמרה");
+}
+$("imgShare").onclick = shareImage;
+$("imgSave").onclick = saveImage;
+$("imgWa").onclick = sendListWhatsApp;
+$("imgMail").onclick = () => { location.href = "mailto:?subject=" + encodeURIComponent("רשימת קניות") + "&body=" + encodeURIComponent(listText()); };
+$("imgClose").onclick = () => $("imgDlg").close();
+$("imgDlg").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+$("imgDlg").addEventListener("close", () => { URL.revokeObjectURL(imgUrl); $("imgPrev").removeAttribute("src"); imgFile = null; });
+
+$("exportList").onclick = () => {
+  if (!openGroups().length) { toast("אין כרגע פריטים חסרים"); return; }
+  $("exportDlg").showModal();
+};
+$("exportWa").onclick = () => { $("exportDlg").close(); sendListWhatsApp(); };
+$("exportJpg").onclick = () => { $("exportDlg").close(); exportJpg().catch(e => { console.error(e); toast("יצירת התמונה לא הצליחה"); }); };
+$("exportCancel").onclick = () => $("exportDlg").close();
+$("exportDlg").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 $("rename").onclick = () => { $("nameInput").value = myName; show("nameBox"); $("nameInput").focus(); };
 
 /* ---------- start ---------- */

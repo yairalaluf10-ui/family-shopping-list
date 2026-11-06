@@ -49,7 +49,10 @@ li:first-child{border-top:0}
 .txt{flex:1;min-width:0}
 .name{font-weight:600;overflow-wrap:anywhere}
 .qtyb{font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
-.who{display:flex;align-items:center;gap:5px;font-size:.82rem;color:var(--muted)}
+.who{display:flex;align-items:center;flex-wrap:wrap;gap:5px;font-size:.82rem;color:var(--muted)}
+.addqty{font:inherit;font-size:.82rem;color:var(--leaf);background:transparent;border:0;padding:2px 0;cursor:pointer}
+.qty-form{display:inline-flex;align-items:center;gap:6px}
+.qty-edit{width:5.5rem;font-size:.85rem;padding:3px 8px;border-radius:8px}
 .who img{width:16px;height:16px;border-radius:50%}
 .move{font:inherit;font-size:.82rem;color:var(--leaf);background:transparent;border:0;padding:2px 0;cursor:pointer;max-width:100%}
 .ic{flex:none;display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;color:var(--c);background:color-mix(in srgb,var(--c) 14%,var(--surface))}
@@ -83,7 +86,18 @@ body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-a
 .or{text-align:center;font-size:.9rem}
 .tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px}
 .tool{font:inherit;font-size:.95rem;font-weight:600;flex:1 1 200px;border:1.5px solid var(--line);background:var(--surface);color:var(--leaf);border-radius:12px;padding:11px 14px;cursor:pointer}
+.clear-all{flex:1 1 100%}
+.tool.danger{width:100%;color:var(--tomato)}
 .tool.quiet{flex-basis:100%;border:0;background:none;color:var(--muted);font-weight:400;font-size:.88rem;padding:4px}
 .tool.quiet:empty{display:none}
+.dlg{width:min(92vw,360px);border:1px solid var(--line);border-radius:16px;padding:18px;background:var(--surface);color:var(--ink)}
+.dlg[open]{display:grid;gap:12px}
+.dlg::backdrop{background:rgba(0,0,0,.45)}
+.dlg p{margin:0;color:var(--muted)}
+.dlg .go{padding:12px 20px}
+#imgPrev{display:block;width:100%;max-height:38vh;object-fit:contain;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+#imgPrev:not([src]){display:none}
+.alt-send{display:flex;gap:8px;margin-top:8px}
+.alt-send .tool{flex:1 1 0}
 .toast{position:fixed;inset-inline:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));margin:0 auto;max-width:420px;background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 16px;text-align:center;z-index:5}
 select:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
