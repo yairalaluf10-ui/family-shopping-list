@@ -1,6 +1,6 @@
 // Lets the app open without signal. Firestore keeps its own offline copy of the list;
 // this worker only caches the app's own files and the Firebase/font libraries.
-const CACHE = "family-list-v3";
+const CACHE = "family-list-v2";
 const SHELL = ["./", "index.html", "styles.css", "app.js", "store.js", "categories.js", "icons.js",
   "firebase-config.js", "manifest.webmanifest", "icons/icon-192.png"];
 

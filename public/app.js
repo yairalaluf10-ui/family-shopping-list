@@ -24,7 +24,7 @@ function idFromText(text) {
 }
 // A localhost address is not a clickable link in WhatsApp, so shared links always use the live site
 // (it opens the same list, since the list lives in Firebase).
-const LIVE_URL = "https://family-list.netlify.app/";
+const LIVE_URL = "https://alaluf-family-list.netlify.app/";
 const isLocalHost = /^(localhost|127\.0\.0\.1|\[::1\]|.+\.localhost)$/.test(location.hostname);
 const listUrl = () => (isLocalHost ? LIVE_URL : location.origin + location.pathname) + "#" + listId;
 
