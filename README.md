@@ -2,7 +2,7 @@
 
 אפליקציית ווב משותפת לרשימת קניות משפחתית. כל בן משפחה מוסיף מה שחסר מהטלפון, והרשימה מתעדכנת אצל כולם בזמן אמת.
 
-**כתובת חיה:** https://family-list.netlify.app
+**כתובת חיה:** https://alaluf-family-list.netlify.app
 
 A shared, real-time family shopping list (Hebrew, RTL). Vanilla JS PWA on Firebase (Firestore + anonymous auth), hosted on Netlify.
 
@@ -46,7 +46,7 @@ SETUP-he.md             מדריך הקמה מאפס, צעד אחר צעד
 
 ## פריסה
 
-- **אתר:** Netlify, פרויקט `family-list`. מעלים את התיקייה `public` (או קובץ zip שלה) ב-Deploys.
+- **אתר:** Netlify, פרויקט `alaluf-family-list`. מעלים את התיקייה `public` (או קובץ zip שלה) ב-Deploys.
 - **Firebase:** פרויקט `family-shop-list-5a0a3`, מסד הנתונים ב-`me-west1` (תל אביב). כללים: Firestore ← Rules, או `npx firebase-tools deploy --only firestore:rules`.
 - הקמה מאפס: ראו [SETUP-he.md](SETUP-he.md).
 
