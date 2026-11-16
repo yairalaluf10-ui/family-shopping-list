@@ -182,10 +182,17 @@ function run(p) {
 const toggle = i => run(store.updateItem(listId, i.id, { done: !i.done, doneAt: Date.now() }));
 function clearBought() { confirming = false; run(store.removeMany(listId, items.filter(i => i.done).map(i => i.id))); }
 
+let dupTimer;
 $("form").addEventListener("submit", e => {
   e.preventDefault();
   const name = $("item").value.trim(); if (!name || !ready) return;
-  const qty = $("qty").value.trim();
+  const norm = s => s.trim().replace(/\s+/g, " ").toLowerCase();
+  if (items.some(i => !i.done && norm(i.name) === norm(name))) {   // already on the open list (bought items don't count)
+    status("המוצר כבר קיים ברשימה", true);
+    clearTimeout(dupTimer); dupTimer = setTimeout(() => status(""), 3000);
+    $("item").select(); return;
+  }
+  const qty =$("qty").value.trim();
   const chosen = manual ? aisle : (guessAisle(name) || "אחר");
   $("item").value = ""; $("qty").value = ""; $("item").focus(); manual = false; setAisle("אחר");
   run(store.addItem(listId, { name, qty, aisle: chosen, done: false, by: myName, uid, createdAt: Date.now() }));
